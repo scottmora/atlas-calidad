@@ -4,7 +4,7 @@ const { pool } = require("../db");
 const validate = require("../middleware/validate");
 const { loginSchema } = require("../validations/auth");
 const router = express.Router();
-const JWT_SECRET=
+const { JWT_SECRET } = require("../config");
 
 router.post("/login", validate(loginSchema), async (req, res) => {
   const { nombre_usuario, password } = req.body;
@@ -67,10 +67,8 @@ router.post("/login", validate(loginSchema), async (req, res) => {
 
     res.json({ token });
   } catch (err) {
-    console.error(err);
-    res
-      .status(500)
-      .json({ error: "Error en login", glosa: err.message || err.toString() });
+    console.error("Error en login:", err);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 });
 

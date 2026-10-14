@@ -1,24 +1,11 @@
 const express = require("express");
 const { pool } = require("../db");
-const jwt = require("jsonwebtoken");
 const validate = require("../middleware/validate");
 const { createUserSchema, updateUserSchema } = require("../validations/users");
 
 const router = express.Router();
-const JWT_SECRET=
+const { getUserFromAuthHeader } = require("../middleware/auth");
 
-function getUserFromAuthHeader(req) {
-  const auth = req.headers.authorization || "";
-  if (!auth.startsWith("Bearer ")) return null;
-  try {
-    const token = auth.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET);
-    return decoded;
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-}
 
 router.post("/", validate(createUserSchema), async (req, res) => {
   const { nombre_usuario, contrasena_hash, correo } = req.body;
@@ -29,10 +16,9 @@ router.post("/", validate(createUserSchema), async (req, res) => {
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error("Error al crear usuario:", err);
     res.status(500).json({
-      error: "Error al crear usuario",
-      glosa: err.message || err.toString(),
+      error: "Error interno del servidor",
     });
   }
 });

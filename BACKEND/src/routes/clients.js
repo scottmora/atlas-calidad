@@ -1,10 +1,9 @@
 const express = require("express");
 const { pool } = require("../db");
-const jwt = require("jsonwebtoken");
 const validate = require("../middleware/validate");
 const { clienteSchema } = require("../validations/clients");
 const router = express.Router();
-const JWT_SECRET=
+const { getUserFromAuthHeader } = require("../middleware/auth");
 
 function getUserFromAuthHeader(req) {
   const auth = req.headers.authorization || "";
@@ -47,14 +46,7 @@ router.post("/", validate(clienteSchema), async (req, res) => {
   } = req.body;
 
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    
 
     const empresaId = authUser.empresaId;
 
@@ -107,10 +99,9 @@ router.post("/", validate(clienteSchema), async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error("Error al crear cliente:", err);
     res.status(500).json({
-      error: "Error al crear cliente",
-      glosa: err.message || err.toString(),
+      error: "Error interno del servidor",
     });
   }
 });

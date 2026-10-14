@@ -1,6 +1,5 @@
 const express = require("express");
 const { pool } = require("../db");
-const jwt = require("jsonwebtoken");
 const validate = require("../middleware/validate");
 const {
   createEmpresaSchema,
@@ -9,18 +8,8 @@ const {
 } = require("../validations/empresas");
 
 const router = express.Router();
-const JWT_SECRET=
+const { getUserFromAuthHeader } = require("../middleware/auth");
 
-function getUserFromAuthHeader(req) {
-  const auth = req.headers.authorization || "";
-  if (!auth.startsWith("Bearer ")) return null;
-  try {
-    const token = auth.substring(7);
-    return jwt.verify(token, JWT_SECRET);
-  } catch {
-    return null;
-  }
-}
 
 router.post("/", async (req, res) => {
   if (req.body.usuario && req.body.empresa) {
@@ -32,12 +21,13 @@ router.post("/", async (req, res) => {
           field: err.path,
           message: err.message,
         }));
-        return res.status(400).json({
-          error: "Error de validación",
-          glosa: "Los datos proporcionados no son válidos",
-          detalles: errors,
-        });
+        return res.status(400).json({ errors });
       }
+      // Si el error no es de validación, cae en el manejo seguro de abajo:
+      console.error("Error interno:", error);
+      return res.status(500).json({ error: "Error interno del servidor" });
+    }
+  }
       return res.status(500).json({
         error: "Error en la validación",
         glosa: error.message || error.toString(),
