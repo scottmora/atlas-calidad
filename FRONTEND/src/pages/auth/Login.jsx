@@ -51,7 +51,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-row items-center justify-cente relative overflow-hidden p-0">
+    <div className="min-h-screen w-full flex flex-row items-center justify-center relative overflow-hidden p-0">
       <div
         className="fixed inset-0 w-full h-full bg-cover bg-center bg-no-repeat -z-10"
         style={{ backgroundImage: `url(${bgRegistro})` }}
@@ -107,7 +107,7 @@ export default function Login() {
               type="submit"
               disabled={loading}
               data-testid="button-login"
-              className="w-full text-white mt-4 py-3 text-lg font-semibold bg-secondary rounded-lg hover:bg-primary hover:shadow-lg hover:-translate-y-0.5 disabled:bg-gray-500 disabled:text-gray-400 disabled:cursor-not-allowed transition-all duration-300"
+              className="w-full text-white mt-4 py-3 text-lg font-semibold bg-primary rounded-lg hover:bg-teal-900 hover:shadow-lg hover:-translate-y-0.5 disabled:bg-gray-500 disabled:text-gray-400 disabled:cursor-not-allowed transition-all duration-300"
             >
               {loading ? "Ingresando..." : "Entrar"}
             </button>

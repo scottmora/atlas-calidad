@@ -10,34 +10,15 @@ const {
 const router = express.Router();
 const { getUserFromAuthHeader } = require("../middleware/auth");
 
-
 router.post("/", async (req, res) => {
   if (req.body.usuario && req.body.empresa) {
     try {
       await createEmpresaConUsuarioSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
-    } catch (error) {
-      if (error.name === "ValidationError") {
-        const errors = error.inner.map((err) => ({
-          field: err.path,
-          message: err.message,
-        }));
-        return res.status(400).json({ errors });
-      }
-      // Si el error no es de validación, cae en el manejo seguro de abajo:
-      console.error("Error interno:", error);
-      return res.status(500).json({ error: "Error interno del servidor" });
-    }
-  }
-      return res.status(500).json({
-        error: "Error en la validación",
-        glosa: error.message || error.toString(),
-      });
-    }
-    const { usuario, empresa } = req.body;
-    const { nombre_usuario, contrasena_hash, correo: correoUsuario } = usuario;
-    const { nombre, direccion = null, telefono = null, correo } = empresa;
-
-    try {
+      
+      const { usuario, empresa } = req.body;
+      const { nombre_usuario, contrasena_hash, correo: correoUsuario } = usuario;
+      const { nombre, direccion = null, telefono = null, correo } = empresa;
+      
       const usuarioResult = await pool.query(
         "INSERT INTO usuarios (nombre_usuario, contrasena_hash, correo) VALUES ($1, $2, $3) RETURNING id, nombre_usuario, correo, created_at",
         [nombre_usuario, contrasena_hash, correoUsuario]
@@ -55,22 +36,11 @@ router.post("/", async (req, res) => {
         [empresaId, usuarioId, 1]
       );
 
-      res.status(201).json({
+      return res.status(201).json({
         usuario: usuarioResult.rows[0],
         empresa: empresaResult.rows[0],
       });
-    } catch (err) {
-      console.error(err);
-      res
-        .status(500)
-        .json({
-          error: "Error al crear empresa con usuario",
-          glosa: err.message || err.toString(),
-        });
-    }
-  } else {
-    try {
-      await createEmpresaSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+
     } catch (error) {
       if (error.name === "ValidationError") {
         const errors = error.inner.map((err) => ({
@@ -83,13 +53,18 @@ router.post("/", async (req, res) => {
           detalles: errors,
         });
       }
+      console.error(error);
       return res.status(500).json({
-        error: "Error en la validación",
+        error: "Error al crear empresa con usuario",
         glosa: error.message || error.toString(),
       });
     }
-    const { nombre, direccion = null, telefono = null, correo } = req.body;
+  } else {
     try {
+      await createEmpresaSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+      
+      const { nombre, direccion = null, telefono = null, correo } = req.body;
+      
       const result = await pool.query(
         "INSERT INTO empresas (nombre, direccion, telefono, correo) VALUES ($1, $2, $3, $4) RETURNING *",
         [nombre, direccion, telefono, correo]
@@ -104,15 +79,25 @@ router.post("/", async (req, res) => {
         ]
       );
 
-      res.status(201).json(result.rows[0]);
-    } catch (err) {
-      console.error(err);
-      res
-        .status(500)
-        .json({
-          error: "Error al crear empresa",
-          glosa: err.message || err.toString(),
+      return res.status(201).json(result.rows[0]);
+
+    } catch (error) {
+      if (error.name === "ValidationError") {
+        const errors = error.inner.map((err) => ({
+          field: err.path,
+          message: err.message,
+        }));
+        return res.status(400).json({
+          error: "Error de validación",
+          glosa: "Los datos proporcionados no son válidos",
+          detalles: errors,
         });
+      }
+      console.error(error);
+      return res.status(500).json({
+        error: "Error al crear empresa",
+        glosa: error.message || error.toString(),
+      });
     }
   }
 });
@@ -123,12 +108,10 @@ router.get("/", async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({
-        error: "Error al listar empresas",
-        glosa: err.message || err.toString(),
-      });
+    res.status(500).json({
+      error: "Error al listar empresas",
+      glosa: err.message || err.toString(),
+    });
   }
 });
 
@@ -142,12 +125,10 @@ router.get("/:id", async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({
-        error: "Error al obtener empresa",
-        glosa: err.message || err.toString(),
-      });
+    res.status(500).json({
+      error: "Error al obtener empresa",
+      glosa: err.message || err.toString(),
+    });
   }
 });
 
@@ -173,12 +154,10 @@ router.put("/:id", validate(updateEmpresaSchema), async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({
-        error: "Error al actualizar empresa",
-        glosa: err.message || err.toString(),
-      });
+    res.status(500).json({
+      error: "Error al actualizar empresa",
+      glosa: err.message || err.toString(),
+    });
   }
 });
 
@@ -203,12 +182,10 @@ router.delete("/:id", async (req, res) => {
     res.json({ deleted: true });
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({
-        error: "Error al eliminar empresa",
-        glosa: err.message || err.toString(),
-      });
+    res.status(500).json({
+      error: "Error al eliminar empresa",
+      glosa: err.message || err.toString(),
+    });
   }
 });
 

@@ -5,16 +5,6 @@ const { clienteSchema } = require("../validations/clients");
 const router = express.Router();
 const { getUserFromAuthHeader } = require("../middleware/auth");
 
-function getUserFromAuthHeader(req) {
-  const auth = req.headers.authorization || "";
-  if (!auth.startsWith("Bearer ")) return null;
-  try {
-    const token = auth.substring(7);
-    return jwt.verify(token, JWT_SECRET);
-  } catch {
-    return null;
-  }
-}
 
 router.post("/", validate(clienteSchema), async (req, res) => {
   const {

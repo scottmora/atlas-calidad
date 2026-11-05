@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const morgan = require("morgan");
 const swaggerUi = require("swagger-ui-express");
 
@@ -20,7 +21,12 @@ const metricasRoutes = require("./routes/metricas");
 
 const app = express();
 
-app.use(cors());
+app.use(helmet()); // agrega las protecciones y oculta "X-Powered-By"
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:3351", // solo nuestra aplicación web
+  })
+);
 app.use(express.json());
 app.use(morgan("dev"));
 
@@ -50,7 +56,14 @@ app.get("/", (req, res) => {
   res.json({ name: "Atlas", status: "ok" });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Atlas API escuchando en puerto ${PORT}`);
-});
+// Solo encendemos el servidor si este archivo se ejecuta directamente
+// (node src/app.js). Cuando lo usan las pruebas, NO se enciende.
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Atlas API escuchando en puerto ${PORT}`);
+  });
+}
+ 
+module.exports = app;
+
