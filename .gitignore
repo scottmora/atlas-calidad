@@ -1,18 +1,15 @@
-# Herramientas descargadas
+# Dependencias (se reinstalan con npm install)
 node_modules/
  
-# Datos secretos y configuración local (NUNCA se suben)
+# Archivos con secretos: NUNCA se suben a GitHub
 .env
 .env.sonar
-BACKEND/.env
-FRONTEND/.env
+**/.env
  
-# Informes generados por las pruebas
-BACKEND/coverage/
-e2e/playwright-report/
-e2e/test-results/
-reportes/
- 
-# Archivos subidos por los usuarios
-BACKEND/uploads/contracts/*
-!BACKEND/uploads/contracts/.gitkeep
+# Resultados generados por las herramientas
+coverage/
+dist/
+playwright-report/
+test-results/
+zap/
+.scannerwork/

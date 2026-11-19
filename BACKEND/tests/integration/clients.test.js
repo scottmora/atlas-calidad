@@ -49,6 +49,29 @@ describe("GET /clientes/:id", () => {
       .set("Authorization", `Bearer ${tokenValido}`);
     expect(res.status).toBe(404);
   });
+
+  describe("DELETE /clientes/:id", () => {
+    test("403 si el token pertenece a un editor", async () => {
+      const tokenEditor = jwt.sign(
+        { usuarioId: 2, nombreUsuario: "editor", empresaId: 1, rolNombre: "editor" },
+        SECRET
+      );
+      const res = await request(app)
+        .delete("/clientes/1")
+        .set("Authorization", `Bearer ${tokenEditor}`);
+      expect(res.status).toBe(403);
+    });
+
+    test("200 si el token pertenece al administrador", async () => {
+      pool.query
+        .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+        .mockResolvedValueOnce({ rows: [] });
+      const res = await request(app)
+        .delete("/clientes/1")
+        .set("Authorization", `Bearer ${tokenValido}`);
+      expect(res.status).toBe(200);
+    });
+  });
 });
  
 describe("Manejo de errores", () => {

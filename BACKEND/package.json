@@ -6,8 +6,9 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon",
-    "test": "jest",
-    "test:coverage": "jest --coverage"
+    "test": "jest --coverage",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest tests/integration --runInBand"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

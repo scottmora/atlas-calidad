@@ -4,5 +4,6 @@ module.exports = {
   setupFiles: ["<rootDir>/tests/setup-env.js"],
   collectCoverageFrom: ["src/**/*.js"],
   coverageDirectory: "coverage",
-  coverageReporters: ["text", "lcov"],
+  coverageReporters: ["text-summary", "lcov"],
+  testTimeout: 15000,
 };
