@@ -521,17 +521,43 @@ router.delete("/:id/file/:fileId", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    await pool.query("DELETE FROM documentos_contrato WHERE contract_id=$1", [
-      req.params.id,
-    ]);
+    const authUser = getUserFromAuthHeader(req);
+
+    if (!authUser || !authUser.empresaId) {
+      return res.status(401).json({
+        error: "No autorizado",
+        glosa: "Token inválido o sin empresa asociada",
+      });
+    }
+
+    if (authUser.rolNombre !== "administrador") {
+      return res.status(403).json({
+        error: "Acción no permitida",
+        glosa: "Solo un administrador puede eliminar contratos",
+      });
+    }
+
+    await pool.query(
+      `DELETE FROM documentos_contrato d
+       USING contratos c
+       INNER JOIN clientes cl ON cl.id = c.cliente_id
+       WHERE d.contract_id = c.id
+         AND c.id = $1
+         AND cl.empresa_id = $2`,
+      [req.params.id, authUser.empresaId]
+    );
     const result = await pool.query(
-      "DELETE FROM contratos WHERE id=$1 RETURNING *",
-      [req.params.id]
+      `DELETE FROM contratos c
+       USING clientes cl
+       WHERE c.cliente_id = cl.id
+         AND c.id = $1
+         AND cl.empresa_id = $2
+       RETURNING c.*`,
+      [req.params.id, authUser.empresaId]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: "No encontrado" });
 
-    const authUser = getUserFromAuthHeader(req);
     await pool.query(
       "INSERT INTO auditoria (usuario_id, accion) VALUES ($1, $2)",
       [
