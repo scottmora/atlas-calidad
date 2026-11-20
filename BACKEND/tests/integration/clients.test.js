@@ -11,9 +11,69 @@ const tokenValido = jwt.sign(
   { usuarioId: 1, nombreUsuario: "admin", empresaId: 1, rolNombre: "administrador" },
   SECRET
 );
+const clienteValido = {
+  nombre: "Cliente de prueba",
+  correo: "cliente@example.com",
+  telefono: "123456789",
+  rut: "12345678-9",
+  nombre_fantasia: "Prueba",
+  giro_actividad_economica: "Servicios",
+  nombre_representante: "Representante",
+  cargo_representante: "Gerente",
+  correo_representante: "representante@example.com",
+  telefono_representante: "123456789",
+  relacion_representante: "Titular",
+  direccion_calle: "Calle 1",
+  direccion_numero: "1",
+  direccion_ciudad: "Santiago",
+  direccion_region: "Metropolitana",
+  sitio_web: "https://example.com",
+  telefono_corporativo: "123456789",
+  nombre_banco: "Banco",
+  numero_cuenta: "123456",
+  titular_cuenta: "Cliente de prueba",
+  metodo_pago: "transferencia",
+  dia_pago: "5",
+  moneda: "CLP",
+};
  
 beforeEach(() => pool.query.mockReset());
  
+describe("POST /clientes", () => {
+  test("401 sin token", async () => {
+    const res = await request(app).post("/clientes").send(clienteValido);
+    expect(res.status).toBe(401);
+  });
+
+  test("crea el cliente dentro de la empresa del usuario autenticado", async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1, nombre: clienteValido.nombre }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post("/clientes")
+      .set("Authorization", `Bearer ${tokenValido}`)
+      .send(clienteValido);
+
+    expect(res.status).toBe(201);
+    expect(pool.query.mock.calls[0][1].at(-1)).toBe(1);
+  });
+});
+
+describe("PUT /clientes/:id", () => {
+  test("actualiza los campos de un cliente dentro de la empresa del usuario", async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1, nombre: clienteValido.nombre }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .put("/clientes/1")
+      .set("Authorization", `Bearer ${tokenValido}`)
+      .send(clienteValido);
+
+    expect(res.status).toBe(200);
+    expect(pool.query.mock.calls[0][1].slice(-2)).toEqual(["1", 1]);
+  });
+});
+
 describe("GET /clientes", () => {
   test("401 sin token", async () => {
     const res = await request(app).get("/clientes");
@@ -41,6 +101,22 @@ describe("GET /clientes", () => {
   });
 });
  
+describe("Autenticación de rutas de clientes", () => {
+  test.each([
+    ["get", "/clientes/search"],
+    ["get", "/clientes/1"],
+    ["put", "/clientes/1"],
+    ["delete", "/clientes/1"],
+  ])("401 sin token en %s %s", async (method, path) => {
+    let call = request(app)[method](path);
+    if (method === "put") call = call.send(clienteValido);
+    const res = await call;
+
+    expect(res.status).toBe(401);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+});
+
 describe("GET /clientes/:id", () => {
   test("404 si el cliente no existe o es de otra empresa", async () => {
     pool.query.mockResolvedValueOnce({ rows: [] });
@@ -48,6 +124,29 @@ describe("GET /clientes/:id", () => {
       .get("/clientes/999")
       .set("Authorization", `Bearer ${tokenValido}`);
     expect(res.status).toBe(404);
+  });
+
+  describe("DELETE /clientes/:id", () => {
+    test("403 si el token pertenece a un editor", async () => {
+      const tokenEditor = jwt.sign(
+        { usuarioId: 2, nombreUsuario: "editor", empresaId: 1, rolNombre: "editor" },
+        SECRET
+      );
+      const res = await request(app)
+        .delete("/clientes/1")
+        .set("Authorization", `Bearer ${tokenEditor}`);
+      expect(res.status).toBe(403);
+    });
+
+    test("200 si el token pertenece al administrador", async () => {
+      pool.query
+        .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+        .mockResolvedValueOnce({ rows: [] });
+      const res = await request(app)
+        .delete("/clientes/1")
+        .set("Authorization", `Bearer ${tokenValido}`);
+      expect(res.status).toBe(200);
+    });
   });
 });
  

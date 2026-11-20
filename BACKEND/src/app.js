@@ -64,6 +64,5 @@ if (require.main === module) {
     console.log(`Atlas API escuchando en puerto ${PORT}`);
   });
 }
- 
-module.exports = app;
 
+module.exports = app;

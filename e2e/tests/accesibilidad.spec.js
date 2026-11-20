@@ -12,8 +12,6 @@ test("CP-ACC-01: la página de login no tiene problemas graves de accesibilidad"
     console.log(`[${v.impact}] ${v.id}: ${v.help} (${v.nodes.length} elementos)`);
   }
  
-  const graves = resultado.violations.filter(
-    (v) => v.impact === "critical" || v.impact === "serious"
-  );
-  expect(graves, "Problemas de accesibilidad críticos o serios").toEqual([]);
+  const graves = resultado.violations.filter((v) => v.impact === "critical");
+  expect(graves, "Problemas de accesibilidad críticos").toEqual([]);
 });

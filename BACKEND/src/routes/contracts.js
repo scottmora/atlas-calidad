@@ -6,9 +6,10 @@ const crypto = require("crypto");
 const { pool } = require("../db");
 const validate = require("../middleware/validate");
 const { createContractSchema, updateContractSchema } = require("../validations/contracts");
+const sendServerError = require("../utils/sendServerError");
 
 const router = express.Router();
-const { getUserFromAuthHeader } = require("../middleware/auth");
+const { getUserFromAuthHeader, requireCompanyUser } = require("../middleware/auth");
 const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB por archivo
 
@@ -63,14 +64,8 @@ router.post("/", upload.array("files", 10), validate(createContractSchema), asyn
 
 router.get("/", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
     const empresaId = authUser.empresaId;
     const result = await pool.query(
       `
@@ -91,24 +86,14 @@ router.get("/", async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      error: "Error al listar contratos",
-      glosa: err.message || err.toString(),
-    });
+    sendServerError(res, err, "Error al listar contratos");
   }
 });
 
 router.get("/estados", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const empresaId = authUser.empresaId;
     const hoy = new Date();
@@ -152,24 +137,14 @@ router.get("/estados", async (req, res) => {
 
     res.json([...porVencerConEstado, ...vencidosConEstado]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      error: "Error al obtener contratos por estado",
-      glosa: err.message || err.toString(),
-    });
+    sendServerError(res, err, "Error al obtener contratos por estado");
   }
 });
 
 router.get("/dashboard", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const empresaId = authUser.empresaId;
     const hoy = new Date();
@@ -240,11 +215,7 @@ router.get("/dashboard", async (req, res) => {
       contratosVencen30Dias: contratos30Dias,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      error: "Error al obtener estadísticas",
-      glosa: err.message || err.toString(),
-    });
+    sendServerError(res, err, "Error al obtener estadísticas");
   }
 });
 
@@ -268,14 +239,8 @@ router.get("/:id", async (req, res) => {
 
 router.put("/:id", upload.array("files", 10), validate(updateContractSchema), async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const empresaId = authUser.empresaId;
     const contratoId = req.params.id;
@@ -454,14 +419,8 @@ router.get("/:id/file", async (req, res) => {
 // Endpoint para eliminar un archivo específico
 router.delete("/:id/file/:fileId", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const empresaId = authUser.empresaId;
     const contratoId = req.params.id;
@@ -521,17 +480,37 @@ router.delete("/:id/file/:fileId", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    await pool.query("DELETE FROM documentos_contrato WHERE contract_id=$1", [
-      req.params.id,
-    ]);
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
+
+    if (authUser.rolNombre !== "administrador") {
+      return res.status(403).json({
+        error: "Acción no permitida",
+        glosa: "Solo un administrador puede eliminar contratos",
+      });
+    }
+
+    await pool.query(
+      `DELETE FROM documentos_contrato d
+       USING contratos c
+       INNER JOIN clientes cl ON cl.id = c.cliente_id
+       WHERE d.contract_id = c.id
+         AND c.id = $1
+         AND cl.empresa_id = $2`,
+      [req.params.id, authUser.empresaId]
+    );
     const result = await pool.query(
-      "DELETE FROM contratos WHERE id=$1 RETURNING *",
-      [req.params.id]
+      `DELETE FROM contratos c
+       USING clientes cl
+       WHERE c.cliente_id = cl.id
+         AND c.id = $1
+         AND cl.empresa_id = $2
+       RETURNING c.*`,
+      [req.params.id, authUser.empresaId]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: "No encontrado" });
 
-    const authUser = getUserFromAuthHeader(req);
     await pool.query(
       "INSERT INTO auditoria (usuario_id, accion) VALUES ($1, $2)",
       [
@@ -553,14 +532,8 @@ router.delete("/:id", async (req, res) => {
 // Endpoint para generar/compartir enlace con contraseña
 router.post("/:id/share", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const empresaId = authUser.empresaId;
     const contratoId = req.params.id;
@@ -629,14 +602,8 @@ router.post("/:id/share", async (req, res) => {
 // Endpoint para desactivar compartir
 router.delete("/:id/share", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const empresaId = authUser.empresaId;
     const contratoId = req.params.id;
@@ -685,14 +652,8 @@ router.delete("/:id/share", async (req, res) => {
 // Endpoint para obtener información del enlace compartido (solo para el dueño)
 router.get("/:id/share", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const empresaId = authUser.empresaId;
     const contratoId = req.params.id;

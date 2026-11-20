@@ -3,42 +3,70 @@ const { pool } = require("../db");
 const validate = require("../middleware/validate");
 const { clienteSchema } = require("../validations/clients");
 const router = express.Router();
-const { getUserFromAuthHeader } = require("../middleware/auth");
+const { requireCompanyUser } = require("../middleware/auth");
 
-
-router.post("/", validate(clienteSchema), async (req, res) => {
-  const {
+function getClientValues({
+  nombre,
+  correo,
+  telefono,
+  direccion,
+  es_empresa = false,
+  nombre_banco = null,
+  numero_cuenta = null,
+  titular_cuenta = null,
+  rut = null,
+  nombre_fantasia = null,
+  giro_actividad_economica = null,
+  nombre_representante = null,
+  cargo_representante = null,
+  correo_representante = null,
+  telefono_representante = null,
+  relacion_representante = null,
+  direccion_calle = null,
+  direccion_numero = null,
+  direccion_ciudad = null,
+  direccion_region = null,
+  sitio_web = null,
+  telefono_corporativo = null,
+  metodo_pago = null,
+  dia_pago = null,
+  moneda = null,
+}) {
+  return [
     nombre,
     correo,
     telefono,
     direccion,
-    es_empresa = false,
-    nombre_banco = null,
-    numero_cuenta = null,
-    titular_cuenta = null,
-    rut = null,
-    nombre_fantasia = null,
-    giro_actividad_economica = null,
-    nombre_representante = null,
-    cargo_representante = null,
-    correo_representante = null,
-    telefono_representante = null,
-    relacion_representante = null,
-    direccion_calle = null,
-    direccion_numero = null,
-    direccion_ciudad = null,
-    direccion_region = null,
-    sitio_web = null,
-    telefono_corporativo = null,
-    metodo_pago = null,
-    dia_pago = null,
-    moneda = null,
-  } = req.body;
+    es_empresa,
+    nombre_banco,
+    numero_cuenta,
+    titular_cuenta,
+    rut,
+    nombre_fantasia,
+    giro_actividad_economica,
+    nombre_representante,
+    cargo_representante,
+    correo_representante,
+    telefono_representante,
+    relacion_representante,
+    direccion_calle,
+    direccion_numero,
+    direccion_ciudad,
+    direccion_region,
+    sitio_web,
+    telefono_corporativo,
+    metodo_pago,
+    dia_pago,
+    moneda,
+  ];
+}
 
+router.post("/", validate(clienteSchema), async (req, res) => {
   try {
-    
-
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
     const empresaId = authUser.empresaId;
+    const clientValues = getClientValues(req.body);
 
     const result = await pool.query(
       `INSERT INTO clientes (
@@ -49,41 +77,14 @@ router.post("/", validate(clienteSchema), async (req, res) => {
         metodo_pago, dia_pago, moneda,
         empresa_id
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26) RETURNING *`,
-      [
-        nombre,
-        correo,
-        telefono,
-        direccion,
-        es_empresa,
-        nombre_banco,
-        numero_cuenta,
-        titular_cuenta,
-        rut,
-        nombre_fantasia,
-        giro_actividad_economica,
-        nombre_representante,
-        cargo_representante,
-        correo_representante,
-        telefono_representante,
-        relacion_representante,
-        direccion_calle,
-        direccion_numero,
-        direccion_ciudad,
-        direccion_region,
-        sitio_web,
-        telefono_corporativo,
-        metodo_pago,
-        dia_pago,
-        moneda,
-        empresaId,
-      ]
+      [...clientValues, empresaId]
     );
 
     await pool.query(
       "INSERT INTO auditoria (usuario_id, accion) VALUES ($1, $2)",
       [
         authUser?.nombreUsuario || null,
-        `CLIENTES_CREAR: creó cliente ${nombre}`,
+        `CLIENTES_CREAR: creó cliente ${req.body.nombre}`,
       ]
     );
 
@@ -98,14 +99,8 @@ router.post("/", validate(clienteSchema), async (req, res) => {
 
 router.get("/", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     console.log("authUser", authUser.empresaId);
 
@@ -127,14 +122,8 @@ router.get("/", async (req, res) => {
 router.get("/search", async (req, res) => {
   const { name } = req.query;
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const result = await pool.query(
       "SELECT * FROM clientes WHERE nombre ILIKE $1 AND empresa_id = $2 ORDER BY nombre ASC",
@@ -152,14 +141,8 @@ router.get("/search", async (req, res) => {
 
 router.get("/:id", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const result = await pool.query(
       "SELECT * FROM clientes WHERE id=$1 AND empresa_id = $2",
@@ -180,43 +163,10 @@ router.get("/:id", async (req, res) => {
 });
 
 router.put("/:id", validate(clienteSchema), async (req, res) => {
-  const {
-    nombre,
-    correo,
-    telefono,
-    direccion,
-    es_empresa = false,
-    nombre_banco = null,
-    numero_cuenta = null,
-    titular_cuenta = null,
-    rut = null,
-    nombre_fantasia = null,
-    giro_actividad_economica = null,
-    nombre_representante = null,
-    cargo_representante = null,
-    correo_representante = null,
-    telefono_representante = null,
-    relacion_representante = null,
-    direccion_calle = null,
-    direccion_numero = null,
-    direccion_ciudad = null,
-    direccion_region = null,
-    sitio_web = null,
-    telefono_corporativo = null,
-    metodo_pago = null,
-    dia_pago = null,
-    moneda = null,
-  } = req.body;
-
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
+    const clientValues = getClientValues(req.body);
 
     const result = await pool.query(
       `UPDATE clientes SET 
@@ -226,35 +176,7 @@ router.put("/:id", validate(clienteSchema), async (req, res) => {
         direccion_calle=$17, direccion_numero=$18, direccion_ciudad=$19, direccion_region=$20, sitio_web=$21, telefono_corporativo=$22,
         metodo_pago=$23, dia_pago=$24, moneda=$25
       WHERE id=$26 AND empresa_id = $27 RETURNING *`,
-      [
-        nombre,
-        correo,
-        telefono,
-        direccion,
-        es_empresa,
-        nombre_banco,
-        numero_cuenta,
-        titular_cuenta,
-        rut,
-        nombre_fantasia,
-        giro_actividad_economica,
-        nombre_representante,
-        cargo_representante,
-        correo_representante,
-        telefono_representante,
-        relacion_representante,
-        direccion_calle,
-        direccion_numero,
-        direccion_ciudad,
-        direccion_region,
-        sitio_web,
-        telefono_corporativo,
-        metodo_pago,
-        dia_pago,
-        moneda,
-        req.params.id,
-        authUser.empresaId,
-      ]
+      [...clientValues, req.params.id, authUser.empresaId]
     );
 
     if (result.rows.length === 0)
@@ -280,12 +202,13 @@ router.put("/:id", validate(clienteSchema), async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
+    if (authUser.rolNombre !== "administrador") {
+      return res.status(403).json({
+        error: "Acción no permitida",
+        glosa: "Solo un administrador puede eliminar clientes",
       });
     }
 
