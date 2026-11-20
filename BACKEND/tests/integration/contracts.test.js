@@ -56,6 +56,46 @@ describe("Autenticación de rutas de contratos", () => {
   });
 });
 
+describe("Descarga de archivos de contratos", () => {
+  test.each([
+    ["/contratos/7/file/2", [2, "7"]],
+    ["/contratos/7/file", ["7"]],
+  ])("sirve el archivo solicitado en %s", async (path, params) => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{ document: Buffer.from("pdf-data"), nombre_archivo: "test.pdf" }],
+    });
+    const res = await request(app).get(path);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("application/pdf");
+    expect(res.headers["content-disposition"]).toBe('inline; filename="test.pdf"');
+    expect(res.body.toString()).toBe("pdf-data");
+    expect(pool.query.mock.calls[0][1]).toEqual(params);
+  });
+
+  test("404 si el archivo no existe", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).get("/contratos/7/file/2");
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Documento no encontrado" });
+  });
+
+  test.each(["/contratos/7/file/2", "/contratos/7/file"])(
+    "500 si falla la lectura en %s",
+    async (path) => {
+      pool.query.mockRejectedValueOnce(new Error("almacenamiento no disponible"));
+      const res = await request(app).get(path);
+
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({
+        error: "Error al obtener archivo",
+        glosa: "almacenamiento no disponible",
+      });
+    }
+  );
+});
+
 describe("DELETE /contratos/:id", () => {
   test("401 sin token y no elimina datos", async () => {
     pool.query

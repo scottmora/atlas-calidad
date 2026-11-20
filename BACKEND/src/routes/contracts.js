@@ -13,6 +13,17 @@ const { getUserFromAuthHeader, requireCompanyUser } = require("../middleware/aut
 const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB por archivo
 
+async function sendContractFile(res, query, params) {
+  const doc = await pool.query(query, params);
+  if (doc.rows.length === 0)
+    return res.status(404).json({ error: "Documento no encontrado" });
+
+  const buffer = doc.rows[0].document;
+  const nombreArchivo = doc.rows[0].nombre_archivo || "contrato.pdf";
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="${nombreArchivo}"`);
+  return res.send(buffer);
+}
 
 router.post("/", upload.array("files", 10), validate(createContractSchema), async (req, res) => {
   const {
@@ -373,46 +384,26 @@ router.get("/:id/files", async (req, res) => {
 // Endpoint para descargar un archivo específico
 router.get("/:id/file/:fileId", async (req, res) => {
   try {
-    const doc = await pool.query(
+    return await sendContractFile(
+      res,
       "SELECT document, nombre_archivo FROM documentos_contrato WHERE id=$1 AND contract_id=$2",
       [req.params.fileId, req.params.id]
     );
-    if (doc.rows.length === 0)
-      return res.status(404).json({ error: "Documento no encontrado" });
-    const buffer = doc.rows[0].document;
-    const nombreArchivo = doc.rows[0].nombre_archivo || "contrato.pdf";
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${nombreArchivo}"`);
-    res.send(buffer);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      error: "Error al obtener archivo",
-      glosa: err.message || err.toString(),
-    });
+    sendServerError(res, err, "Error al obtener archivo");
   }
 });
 
 // Endpoint legacy para compatibilidad (devuelve el último archivo)
 router.get("/:id/file", async (req, res) => {
   try {
-    const doc = await pool.query(
+    return await sendContractFile(
+      res,
       "SELECT document, nombre_archivo FROM documentos_contrato WHERE contract_id=$1 ORDER BY id DESC LIMIT 1",
       [req.params.id]
     );
-    if (doc.rows.length === 0)
-      return res.status(404).json({ error: "Documento no encontrado" });
-    const buffer = doc.rows[0].document;
-    const nombreArchivo = doc.rows[0].nombre_archivo || "contrato.pdf";
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${nombreArchivo}"`);
-    res.send(buffer);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      error: "Error al obtener archivo",
-      glosa: err.message || err.toString(),
-    });
+    sendServerError(res, err, "Error al obtener archivo");
   }
 });
 
