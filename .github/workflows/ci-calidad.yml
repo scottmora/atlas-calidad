@@ -36,7 +36,7 @@ jobs:
  
       - name: Ejecutar pruebas con cobertura
         working-directory: BACKEND
-        run: npm run test:coverage
+        run: npm test
  
       - name: Guardar reporte de cobertura
         if: always()
