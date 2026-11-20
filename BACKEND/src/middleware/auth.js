@@ -12,4 +12,16 @@ function getUserFromAuthHeader(req) {
   }
 }
  
-module.exports = { getUserFromAuthHeader };
+function requireCompanyUser(req, res) {
+  const authUser = getUserFromAuthHeader(req);
+  if (!authUser || !authUser.empresaId) {
+    res.status(401).json({
+      error: "No autorizado",
+      glosa: "Token inválido o sin empresa asociada",
+    });
+    return null;
+  }
+  return authUser;
+}
+
+module.exports = { getUserFromAuthHeader, requireCompanyUser };

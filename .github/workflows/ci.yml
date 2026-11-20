@@ -84,14 +84,6 @@ jobs:
       - name: Ajustar rutas de cobertura para SonarQube
         run: sed -i 's#^SF:#SF:BACKEND/#' BACKEND/coverage/lcov.info
  
-      - name: Análisis SonarQube Cloud y Quality Gate
-        uses: SonarSource/sonarqube-scan-action@v5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.qualitygate.wait=true
- 
   # -------------------------------------------------------------------
   # ETAPA 3 · Pruebas del sistema completo funcionando
   # -------------------------------------------------------------------

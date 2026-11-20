@@ -11,9 +11,54 @@ const tokenValido = jwt.sign(
   { usuarioId: 1, nombreUsuario: "admin", empresaId: 1, rolNombre: "administrador" },
   SECRET
 );
+const clienteValido = {
+  nombre: "Cliente de prueba",
+  correo: "cliente@example.com",
+  telefono: "123456789",
+  rut: "12345678-9",
+  nombre_fantasia: "Prueba",
+  giro_actividad_economica: "Servicios",
+  nombre_representante: "Representante",
+  cargo_representante: "Gerente",
+  correo_representante: "representante@example.com",
+  telefono_representante: "123456789",
+  relacion_representante: "Titular",
+  direccion_calle: "Calle 1",
+  direccion_numero: "1",
+  direccion_ciudad: "Santiago",
+  direccion_region: "Metropolitana",
+  sitio_web: "https://example.com",
+  telefono_corporativo: "123456789",
+  nombre_banco: "Banco",
+  numero_cuenta: "123456",
+  titular_cuenta: "Cliente de prueba",
+  metodo_pago: "transferencia",
+  dia_pago: "5",
+  moneda: "CLP",
+};
  
 beforeEach(() => pool.query.mockReset());
  
+describe("POST /clientes", () => {
+  test("401 sin token", async () => {
+    const res = await request(app).post("/clientes").send(clienteValido);
+    expect(res.status).toBe(401);
+  });
+
+  test("crea el cliente dentro de la empresa del usuario autenticado", async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1, nombre: clienteValido.nombre }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post("/clientes")
+      .set("Authorization", `Bearer ${tokenValido}`)
+      .send(clienteValido);
+
+    expect(res.status).toBe(201);
+    expect(pool.query.mock.calls[0][1].at(-1)).toBe(1);
+  });
+});
+
 describe("GET /clientes", () => {
   test("401 sin token", async () => {
     const res = await request(app).get("/clientes");
