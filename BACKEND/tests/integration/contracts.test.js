@@ -17,6 +17,25 @@ const tokenAdministrador = jwt.sign(
 
 beforeEach(() => pool.query.mockReset());
 
+describe("Errores en rutas de contratos", () => {
+  test.each([
+    ["/contratos", "Error al listar contratos"],
+    ["/contratos/estados", "Error al obtener contratos por estado"],
+    ["/contratos/dashboard", "Error al obtener estadísticas"],
+  ])("responde 500 si falla la consulta en %s", async (path, message) => {
+    pool.query.mockRejectedValueOnce(new Error("conexión perdida"));
+    const res = await request(app)
+      .get(path)
+      .set("Authorization", `Bearer ${tokenAdministrador}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({
+      error: message,
+      glosa: "conexión perdida",
+    });
+  });
+});
+
 describe("DELETE /contratos/:id", () => {
   test("401 sin token y no elimina datos", async () => {
     pool.query

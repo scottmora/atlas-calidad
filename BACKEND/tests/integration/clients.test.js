@@ -59,6 +59,21 @@ describe("POST /clientes", () => {
   });
 });
 
+describe("PUT /clientes/:id", () => {
+  test("actualiza los campos de un cliente dentro de la empresa del usuario", async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1, nombre: clienteValido.nombre }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .put("/clientes/1")
+      .set("Authorization", `Bearer ${tokenValido}`)
+      .send(clienteValido);
+
+    expect(res.status).toBe(200);
+    expect(pool.query.mock.calls[0][1].slice(-2)).toEqual(["1", 1]);
+  });
+});
+
 describe("GET /clientes", () => {
   test("401 sin token", async () => {
     const res = await request(app).get("/clientes");
