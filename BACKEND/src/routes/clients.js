@@ -3,7 +3,7 @@ const { pool } = require("../db");
 const validate = require("../middleware/validate");
 const { clienteSchema } = require("../validations/clients");
 const router = express.Router();
-const { getUserFromAuthHeader, requireCompanyUser } = require("../middleware/auth");
+const { requireCompanyUser } = require("../middleware/auth");
 
 function getClientValues({
   nombre,
@@ -99,14 +99,8 @@ router.post("/", validate(clienteSchema), async (req, res) => {
 
 router.get("/", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     console.log("authUser", authUser.empresaId);
 
@@ -128,14 +122,8 @@ router.get("/", async (req, res) => {
 router.get("/search", async (req, res) => {
   const { name } = req.query;
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const result = await pool.query(
       "SELECT * FROM clientes WHERE nombre ILIKE $1 AND empresa_id = $2 ORDER BY nombre ASC",
@@ -153,14 +141,8 @@ router.get("/search", async (req, res) => {
 
 router.get("/:id", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     const result = await pool.query(
       "SELECT * FROM clientes WHERE id=$1 AND empresa_id = $2",
@@ -182,14 +164,8 @@ router.get("/:id", async (req, res) => {
 
 router.put("/:id", validate(clienteSchema), async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
     const clientValues = getClientValues(req.body);
 
     const result = await pool.query(
@@ -226,14 +202,8 @@ router.put("/:id", validate(clienteSchema), async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const authUser = getUserFromAuthHeader(req);
-
-    if (!authUser || !authUser.empresaId) {
-      return res.status(401).json({
-        error: "No autorizado",
-        glosa: "Token inválido o sin empresa asociada",
-      });
-    }
+    const authUser = requireCompanyUser(req, res);
+    if (!authUser) return;
 
     if (authUser.rolNombre !== "administrador") {
       return res.status(403).json({

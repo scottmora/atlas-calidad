@@ -101,6 +101,22 @@ describe("GET /clientes", () => {
   });
 });
  
+describe("Autenticación de rutas de clientes", () => {
+  test.each([
+    ["get", "/clientes/search"],
+    ["get", "/clientes/1"],
+    ["put", "/clientes/1"],
+    ["delete", "/clientes/1"],
+  ])("401 sin token en %s %s", async (method, path) => {
+    let call = request(app)[method](path);
+    if (method === "put") call = call.send(clienteValido);
+    const res = await call;
+
+    expect(res.status).toBe(401);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+});
+
 describe("GET /clientes/:id", () => {
   test("404 si el cliente no existe o es de otra empresa", async () => {
     pool.query.mockResolvedValueOnce({ rows: [] });
