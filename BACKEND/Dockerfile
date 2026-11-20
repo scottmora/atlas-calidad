@@ -1,5 +1,5 @@
 # Versión de Node.js con soporte vigente
-FROM node:24-alpine
+FROM node:latest
  
 WORKDIR /app
  
